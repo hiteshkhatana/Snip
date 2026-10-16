@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [citext]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  links Link[]
+
+  @@map("users")
+}
+
+model Link {
+  id          String    @id @default(uuid())
+  userId      String
+  shortCode   String    @unique @db.Citext
+  originalUrl String
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  deletedAt   DateTime?
+
+  user   User    @relation(fields: [userId], references: [id])
+  clicks Click[]
+
+  @@index([userId])
+  @@map("links")
+}
+
+model Click {
+  id         String   @id @default(uuid())
+  linkId     String
+  clickedAt  DateTime @default(now())
+  referrer   String?
+  userAgent  String?
+
+  link Link @relation(fields: [linkId], references: [id])
+
+  @@index([linkId])
+  @@index([linkId, clickedAt])
+  @@map("clicks")
+}
