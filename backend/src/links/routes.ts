@@ -5,6 +5,8 @@ import { isValidUrl, isValidAlias, isValidFutureDate } from "./validation";
 import { generateShortCode } from "./shortCode";
 import { parsePagination } from "./pagination";
 import { getClicksByDay, getTopReferrers } from "./analytics";
+import { isRateLimited } from "./rateLimit";
+import { generateQrCodePng } from "./qrCode";
 
 const router = Router();
 const MAX_GENERATED_CODE_ATTEMPTS = 5;
@@ -52,6 +54,14 @@ router.get("/", requireAuth, async (req: AuthenticatedRequest, res) => {
 });
 
 router.post("/", requireAuth, async (req: AuthenticatedRequest, res) => {
+  const userId = req.userId as string;
+
+  if (await isRateLimited(userId)) {
+    return res.status(429).json({
+      error: "You have created too many links recently. Please try again later.",
+    });
+  }
+
   const { url, alias, expiresAt } = req.body;
 
   if (!isValidUrl(url)) {
@@ -68,7 +78,6 @@ router.post("/", requireAuth, async (req: AuthenticatedRequest, res) => {
     return res.status(400).json({ error: "expiresAt must be a valid date in the future" });
   }
 
-  const userId = req.userId as string;
   const expiresAtDate = expiresAt !== undefined ? new Date(expiresAt) : null;
 
   if (alias) {
@@ -173,6 +182,26 @@ router.get("/:id/stats", requireAuth, async (req: AuthenticatedRequest, res) => 
   ]);
 
   return res.status(200).json({ totalClicks, clicksByDay, topReferrers });
+});
+
+router.get("/:id/qrcode", requireAuth, async (req: AuthenticatedRequest, res) => {
+  const userId = req.userId as string;
+  const { id } = req.params;
+
+  const existing = await prisma.link.findFirst({
+    where: { id, userId, deletedAt: null },
+  });
+
+  if (!existing) {
+    return res.status(404).json({ error: "Link not found" });
+  }
+
+  const shortUrl = `${process.env.PUBLIC_SHORT_URL_BASE}/${existing.shortCode}`;
+  const png = await generateQrCodePng(shortUrl);
+
+  res.setHeader("Content-Type", "image/png");
+  res.setHeader("Content-Disposition", `attachment; filename="${existing.shortCode}-qr.png"`);
+  return res.status(200).send(png);
 });
 
 export default router;

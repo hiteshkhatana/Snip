@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Link as LinkData, deleteLink } from "../api";
+import { Link as LinkData, deleteLink, getQrCodeBlob } from "../api";
 import { useAuth } from "../AuthContext";
 import { ShortUrl } from "./ShortUrl";
 import { EditLinkForm } from "./EditLinkForm";
@@ -24,6 +24,29 @@ export function LinksTable({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState("");
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState("");
+
+  async function handleDownloadQr(link: LinkData) {
+    if (!token) return;
+
+    setDownloadingId(link.id);
+    setDownloadError("");
+
+    try {
+      const blob = await getQrCodeBlob(token, link.id);
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = `${link.shortCode}-qr.png`;
+      anchor.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      setDownloadError(err instanceof Error ? err.message : "Could not download QR code.");
+    } finally {
+      setDownloadingId(null);
+    }
+  }
 
   async function handleDelete(id: string) {
     if (!token) return;
@@ -48,7 +71,7 @@ export function LinksTable({
   return (
     <div className="links-table-wrapper">
       {deleteError && <p className="auth-error">{deleteError}</p>}
-
+      {downloadError && <p className="auth-error">{downloadError}</p>}
       <table className="links-table">
         <thead>
           <tr>
@@ -99,6 +122,13 @@ export function LinksTable({
                   </button>
                   <button onClick={() => setEditingId(link.id)} aria-label={`Edit ${link.shortCode}`}>
                     Edit
+                  </button>
+                  <button
+                    onClick={() => handleDownloadQr(link)}
+                    disabled={downloadingId === link.id}
+                    aria-label={`Download QR code for ${link.shortCode}`}
+                  >
+                    {downloadingId === link.id ? "Downloading..." : "QR Code"}
                   </button>
                   <button
                     onClick={() => handleDelete(link.id)}

@@ -103,3 +103,22 @@ export type LinkStats = {
 export function getLinkStats(token: string, id: string) {
   return request<LinkStats>(`/api/links/${id}/stats`, { token });
 }
+
+export async function getQrCodeBlob(token: string, id: string): Promise<Blob> {
+  const response = await fetch(`${API_URL}/api/links/${id}/qrcode`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (response.status === 401) {
+    triggerLogout();
+    window.location.href = "/login";
+    throw new UnauthorizedError("Unauthorized");
+  }
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error((data as ApiError).error ?? "Could not generate QR code.");
+  }
+
+  return response.blob();
+}

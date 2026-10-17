@@ -143,6 +143,48 @@ describe("POST /api/links", () => {
     const stored = await prisma.link.findUnique({ where: { id: response.body.id } });
     expect(stored?.userId).toBe(userAId);
   });
+
+  it("returns 429 after exceeding the per-user creation limit", async () => {
+    for (let i = 0; i < 10; i++) {
+      const response = await request(app)
+        .post("/api/links")
+        .set("Authorization", `Bearer ${userAToken}`)
+        .send({ url: `https://example.com/rate-limit-${i}` });
+      expect(response.status).toBe(201);
+    }
+
+    const eleventh = await request(app)
+      .post("/api/links")
+      .set("Authorization", `Bearer ${userAToken}`)
+      .send({ url: "https://example.com/rate-limit-11" });
+
+    expect(eleventh.status).toBe(429);
+    expect(eleventh.body.error).toMatch(/too many links/i);
+  });
+
+  it("still counts a soft-deleted link toward the rate limit", async () => {
+    const created = await createLink(userAToken, { url: "https://example.com/to-delete" });
+    await request(app)
+      .delete(`/api/links/${created.body.id}`)
+      .set("Authorization", `Bearer ${userAToken}`);
+
+    for (let i = 0; i < 9; i++) {
+      const response = await createLink(userAToken, { url: `https://example.com/after-delete-${i}` });
+      expect(response.status).toBe(201);
+    }
+
+    const eleventh = await createLink(userAToken, { url: "https://example.com/after-delete-11" });
+    expect(eleventh.status).toBe(429);
+  });
+
+  it("applies the rate limit per user, not globally", async () => {
+    for (let i = 0; i < 10; i++) {
+      await createLink(userAToken, { url: `https://example.com/user-a-${i}` });
+    }
+
+    const userBResponse = await createLink(userBToken, { url: "https://example.com/user-b-1" });
+    expect(userBResponse.status).toBe(201);
+  });
 });
 
 describe("GET /api/links", () => {
@@ -407,5 +449,60 @@ describe("DELETE /api/links/:id", () => {
       .set("Authorization", `Bearer ${userAToken}`);
 
     expect(response.body.data).toEqual([]);
+  });
+});
+
+describe("GET /api/links/:id/qrcode", () => {
+  it("returns a PNG image for the owner", async () => {
+    const created = await createLink(userAToken, { url: "https://example.com", alias: "qr-test-1" });
+
+    const response = await request(app)
+      .get(`/api/links/${created.body.id}/qrcode`)
+      .set("Authorization", `Bearer ${userAToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toBe("image/png");
+    expect(response.headers["content-disposition"]).toMatch(/attachment/);
+    expect(response.body.length).toBeGreaterThan(0);
+  });
+
+  it("returns 404 for a nonexistent link", async () => {
+    const response = await request(app)
+      .get("/api/links/00000000-0000-0000-0000-000000000000/qrcode")
+      .set("Authorization", `Bearer ${userAToken}`);
+
+    expect(response.status).toBe(404);
+  });
+
+  it("returns 404 for another user's link", async () => {
+    const created = await createLink(userAToken, { url: "https://example.com", alias: "qr-test-2" });
+
+    const response = await request(app)
+      .get(`/api/links/${created.body.id}/qrcode`)
+      .set("Authorization", `Bearer ${userBToken}`);
+
+    expect(response.status).toBe(404);
+  });
+
+  it("returns 404 for a soft-deleted link", async () => {
+    const created = await createLink(userAToken, { url: "https://example.com", alias: "qr-test-3" });
+
+    await request(app)
+      .delete(`/api/links/${created.body.id}`)
+      .set("Authorization", `Bearer ${userAToken}`);
+
+    const response = await request(app)
+      .get(`/api/links/${created.body.id}/qrcode`)
+      .set("Authorization", `Bearer ${userAToken}`);
+
+    expect(response.status).toBe(404);
+  });
+
+  it("returns 401 for a missing JWT", async () => {
+    const created = await createLink(userAToken, { url: "https://example.com", alias: "qr-test-4" });
+
+    const response = await request(app).get(`/api/links/${created.body.id}/qrcode`);
+
+    expect(response.status).toBe(401);
   });
 });
