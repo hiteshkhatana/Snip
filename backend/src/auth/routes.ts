@@ -15,7 +15,10 @@ router.post("/signup", async (req, res) => {
   }
 
   if (!isValidPassword(password)) {
-    return res.status(400).json({ error: "Password must be at least 8 characters and include a number" });
+    return res.status(400).json({
+      error:
+        "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a special character",
+    });
   }
 
   const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);

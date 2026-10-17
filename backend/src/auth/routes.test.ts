@@ -5,7 +5,7 @@ import app from "../app";
 import { prisma } from "../db";
 
 const testEmail = "auth-test-user@example.com";
-const testPassword = "correct-password-123";
+const testPassword = "Correct-Password-123!";
 
 beforeEach(async () => {
   await prisma.user.deleteMany({ where: { email: testEmail } });
@@ -42,25 +42,52 @@ describe("POST /api/auth/signup", () => {
   it("rejects a password shorter than 8 characters", async () => {
     const response = await request(app)
       .post("/api/auth/signup")
-      .send({ email: testEmail, password: "abc123" });
+      .send({ email: testEmail, password: "Ab1!ab" });
 
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/8 characters/i);
   });
 
+  it("rejects a password with no uppercase letter", async () => {
+    const response = await request(app)
+      .post("/api/auth/signup")
+      .send({ email: testEmail, password: "password1!" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/uppercase/i);
+  });
+
+  it("rejects a password with no lowercase letter", async () => {
+    const response = await request(app)
+      .post("/api/auth/signup")
+      .send({ email: testEmail, password: "PASSWORD1!" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/lowercase/i);
+  });
+
   it("rejects a password with no digit", async () => {
     const response = await request(app)
       .post("/api/auth/signup")
-      .send({ email: testEmail, password: "longenoughpassword" });
+      .send({ email: testEmail, password: "Password!" });
 
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/number/i);
   });
 
-  it("accepts a password that is 8+ characters and includes a digit", async () => {
+  it("rejects a password with no special character", async () => {
     const response = await request(app)
       .post("/api/auth/signup")
-      .send({ email: testEmail, password: "password1" });
+      .send({ email: testEmail, password: "Password1" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/special character/i);
+  });
+
+  it("accepts a password meeting all requirements", async () => {
+    const response = await request(app)
+      .post("/api/auth/signup")
+      .send({ email: testEmail, password: "Password1!" });
 
     expect(response.status).toBe(201);
   });

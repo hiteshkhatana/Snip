@@ -5,7 +5,7 @@ import { prisma } from "../db";
 
 const userAEmail = "stats-test-user-a@example.com";
 const userBEmail = "stats-test-user-b@example.com";
-const password = "correct-password-123";
+const password = "Correct-Password-123!";
 
 let userAToken: string;
 let userBToken: string;

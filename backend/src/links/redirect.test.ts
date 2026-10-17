@@ -4,7 +4,7 @@ import app from "../app";
 import { prisma } from "../db";
 
 const userEmail = "redirect-test-user@example.com";
-const password = "correct-password-123";
+const password = "Correct-Password-123!";
 
 let userToken: string;
 

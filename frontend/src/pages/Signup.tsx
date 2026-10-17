@@ -50,7 +50,10 @@ export function Signup() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        <p className="field-hint">At least 8 characters, including a number.</p>
+        <p className="field-hint">
+          At least 8 characters, with an uppercase letter, a lowercase letter, a number, and a
+          special character.
+        </p>
 
         {error && <p className="auth-error">{error}</p>}
 
