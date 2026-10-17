@@ -38,6 +38,32 @@ describe("POST /api/auth/signup", () => {
     expect(response.status).toBe(409);
     expect(response.body.error).toMatch(/already registered/i);
   });
+
+  it("rejects a password shorter than 8 characters", async () => {
+    const response = await request(app)
+      .post("/api/auth/signup")
+      .send({ email: testEmail, password: "abc123" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/8 characters/i);
+  });
+
+  it("rejects a password with no digit", async () => {
+    const response = await request(app)
+      .post("/api/auth/signup")
+      .send({ email: testEmail, password: "longenoughpassword" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/number/i);
+  });
+
+  it("accepts a password that is 8+ characters and includes a digit", async () => {
+    const response = await request(app)
+      .post("/api/auth/signup")
+      .send({ email: testEmail, password: "password1" });
+
+    expect(response.status).toBe(201);
+  });
 });
 
 describe("POST /api/auth/login", () => {

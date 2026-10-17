@@ -46,9 +46,11 @@ export function Signup() {
           id="password"
           type="password"
           required
+          minLength={8}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
+        <p className="field-hint">At least 8 characters, including a number.</p>
 
         {error && <p className="auth-error">{error}</p>}
 

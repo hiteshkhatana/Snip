@@ -2,6 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcrypt";
 import { prisma } from "../db";
 import { signToken } from "./jwt";
+import { isValidPassword } from "./validation";
 
 const router = Router();
 const BCRYPT_SALT_ROUNDS = 10;
@@ -11,6 +12,10 @@ router.post("/signup", async (req, res) => {
 
   if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
     return res.status(400).json({ error: "Email and password are required" });
+  }
+
+  if (!isValidPassword(password)) {
+    return res.status(400).json({ error: "Password must be at least 8 characters and include a number" });
   }
 
   const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
